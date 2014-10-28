@@ -42,6 +42,7 @@
           if (_development) {
             $log.info('Raven: User ', user);
           } else {
+            $window.Raven.setUserContext(user);
             if ($window.Raven.setUser) {
               $window.Raven.setUserContext(user);
             } else if ($window.Raven.setUserContext) {
@@ -116,6 +117,32 @@
     return function(exception, cause) {
       Raven.captureException(exception, cause);
     };
+  }])
+  .config(['$httpProvider', function ($httpProvider) {
+    $httpProvider.interceptors
+    .push(function($q) {
+      return {
+        'responseError': function (_response) {
+          var getCaptureMessageParams = function (data) {
+            var message = 'Http response error: ' + data.httpStatusCode + ' path: ' + data.requestedPath;
+            
+            var data = {
+              customerFriendlyMessage: data.customerFriendlyMessage,
+              httpStatusCode         : data.httpStatusCode,
+              httpStatusReasonPhrase : data.httpStatusReasonPhrase,
+              requestedPath          : data.requestedPath
+            };
+
+            return [message, {tags: data}];
+          };
+
+          var response = _response || {};
+
+          Raven.captureMessage.apply(this, getCaptureMessageParams(response.data || {}));
+          return response;
+        }
+      };
+    });
   }]);
 
 }(angular.module('ngRaven', []), angular);
